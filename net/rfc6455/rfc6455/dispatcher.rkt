@@ -12,15 +12,15 @@
 ;; modified software. See http://www.gnu.org/licenses/lgpl-3.0.txt for
 ;; more information.
 
-(require rackunit)
-(require web-server/private/connection-manager)
-(require web-server/dispatchers/dispatch)
-(require web-server/http/request-structs)
-(require "conn.rkt")
-(require "handshake.rkt")
-(require "../http.rkt")
-(require "../timeout.rkt")
-(require (submod "../conn-api.rkt" implementation))
+(require rackunit
+         web-server/http/request-structs
+         (submod "../conn-api.rkt" implementation)
+         web-server/dispatchers/dispatch
+         web-server/private/connection-manager
+         "../http.rkt"
+         "../timeout.rkt"
+         "conn.rkt"
+         "handshake.rkt")
 
 (provide make-rfc6455-dispatcher)
 
@@ -33,18 +33,18 @@
       (and actual (string-ci=? (bytes->string/latin-1 actual) expected)))
     (define websocket-key (get-header #"Sec-WebSocket-Key"))
     (when (or (not websocket-key)
-	      (not (header-equal? #"Sec-WebSocket-Version" "13"))
-	      (not (member "websocket" (tokenize-header-value (get-header #"Upgrade"))))
-	      (not (member "upgrade" (tokenize-header-value (get-header #"Connection")))))
+              (not (header-equal? #"Sec-WebSocket-Version" "13"))
+              (not (member "websocket" (tokenize-header-value (get-header #"Upgrade"))))
+              (not (member "upgrade" (tokenize-header-value (get-header #"Connection")))))
       (next-dispatcher))
     (define request-line (reconstruct-request-line req))
 
-    (define-values (reply-headers connection-state)
+    (define-values (reply-headers function)
       (if conn-headers
-	  (if (procedure-arity-includes? conn-headers 3)
-	      (conn-headers request-line headers req)
-	      (conn-headers request-line headers))
-	  (values '() (void))))
+          (if (procedure-arity-includes? conn-headers 3)
+              (conn-headers request-line headers req)
+              (conn-headers request-line headers))
+          (values '() (void))))
 
     (define op (connection-o-port conn))
     (fprintf op "HTTP/1.1 101 Switching Protocols\r\n")
@@ -56,8 +56,6 @@
     (flush-output op)
 
     (bump-connection-timeout! conn)
-    ;; TODO: just parse like an ordinary request
-    ;;       to get request-bindings
     (conn-dispatch (ws-conn-start! (rfc6455-conn #f
                                                  #f
                                                  #f
@@ -69,4 +67,5 @@
                                                  (ws-read-thread)
                                                  (void)
                                                  #f))
-		   connection-state)))
+                   function
+                   req)))
