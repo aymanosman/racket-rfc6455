@@ -56,6 +56,8 @@
     (flush-output op)
 
     (bump-connection-timeout! conn)
+    ;; TODO: just parse like an ordinary request
+    ;;       to get request-bindings
     (conn-dispatch (ws-conn-start! (rfc6455-conn #f
                                                  #f
                                                  #f
